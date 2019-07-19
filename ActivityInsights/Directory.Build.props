@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+    <!-- This file (Directory.Build.props) must be included into all projects in all solutions of this product.             -->
+    <!-- It defines common build paths and infrastructure.                                                                  -->
+    <!-- Other products / repositories using the same build pattern will have an own copy of copy this file.                -->
+    
+    <!-- For "new style" build projects (aka .Net Standard / .Net Core style) this file will be included automatically.     -->
+    <!-- For "old style" projects (aka .Net Framework 4.6.X) this file must be included explicitly.                         -->
+    <!-- The shortest way is to write something  like:                                                                      -->
+    <!--     <Import Project="..\..\Directory.Build.props" />                                                               -->
+    <!-- or                                                                                                                 -->
+    <!--     <Import Project="$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), 'EnlistmentRoot.marker'))\Directory.Build.props" />  -->       
+    <!--                                                                                                                    -->
+    <!--                                                                                                                    -->    
+    <!--        **  It is CRITICAL that you place the EnlistmentRoot.marker file into the root folder for all the  **       -->
+    <!--        **  files that should be checked-in. In the structure shown below, it is the Inner Repo folder.    **       -->
+    <!--        **  If you do not do this, this build file will not work!                                          **       -->
+    <!--                                                                                                                    -->
+    <!--  The common project structure looks like shown below.                                                              -->
+    <!--  The purpose of this approach is to make sure that ALL auto-generated files that are NOT checked-in are            -->
+    <!--  placed SEPARATELY from the checked-in files.                                                                      -->
+    <!--  The INNER Repo folder contains EVERHYTHNG that is checked-in and ALL that is checked in.                          -->
+    <!--  No build output or temp files should end up in the Inner Repo folder! (barring a few *small* VS temporaries)      -->
+    <!--                                                                                                                    -->
+    <!--  c:\Code\                                            | Your local repo collection                                  -->
+    <!--          RepoAbc\                                    | Repo root                                                   -->
+    <!--                  .git\                               | GIT metadata folder                                         -->
+    <!--                  .gitignore                          |                                                             -->
+    <!--                  license.txt                         | Files placed in repo root by GitHub convention.             -->
+    <!--                  readme.md                           | Beyond the conventional minimum, only auto-generated        -->
+    <!--                  ...                                 | content that is not part of the repo should go here.        -->
+    <!--                  Bin\                                |                                                             -->
+    <!--                  Obj\                                | Bin and Obj folders are for VisualStudio binary output.     -->
+    <!--                  Packages\                           | Packages folder contains ALL packages downloaded by NuGet.  -->
+    <!--                  ...                                 |                                                             -->
+    <!--                  RepoAbc\                            | ALL of your ACTUAL repo content goes into a subfolder       -->     
+    <!--                          SomeProjectFolderA\         | named like your repo. This allows for a separation of       -->
+    <!--                                  ...                 | repo contents from auto-generated files.                    -->
+    <!--                          SomeProjectFolderB\         |                                                             -->
+    <!--                                  ...                 |                                                             -->
+    <!--                          RepoAbc.sln                 |                                                             -->
+    <!--                          Directory.Build.props       | This file!                                                  -->
+    <!--                          EnlistmentRoot.marker       | Enlistmet Root marker!!                                     -->
+    <!--                          NuGet.config                | Optional repo-wide NuGet.config                             -->
+    <!--                          ...                         |                                                             -->
+    <!--          RepoXyz\                                    |                                                             -->
+    <!--                                                                                                                    -->
+    <PropertyGroup>
+        <!-- Get the root dir for all files that are checked-in (EnlistmentRoot): -->
+        <EnlistmentRoot Condition="'$(EnlistmentRoot)' == ''">$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), 'EnlistmentRoot.marker'))</EnlistmentRoot>
+
+        <!-- Define root for Bin files -->
+        <BaseIntermediateOutputPath>$(EnlistmentRoot)\..\Obj\$(MSBuildProjectName)</BaseIntermediateOutputPath>
+        <BaseIntermediateOutputPath>$([System.IO.Path]::GetFullPath( $(BaseIntermediateOutputPath) ))</BaseIntermediateOutputPath>
+
+        <!-- Define root for Obj files: -->
+        <BinRoot Condition=" '$(BinRoot)' == '' ">$(EnlistmentRoot)\..\Bin</BinRoot>
+        <BinRoot>$([System.IO.Path]::GetFullPath( $(BinRoot) ))</BinRoot>
+                
+        <!-- Compute relative path from the solution root to the project being built (which includes a reference to THIS file): -->
+        <RelativeOutputPathBase>$(MSBuildProjectDirectory.Substring($(EnlistmentRoot.Length)))</RelativeOutputPathBase>
+    </PropertyGroup>
+  
+    <PropertyGroup>
+        <!-- By default, we assume Debug Configuration. -->
+        <!-- However, project files should specify Configuration before including this file and that setting will be respected. -->
+        <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+
+        <IntermediateOutputPath>$(BaseIntermediateOutputPath)\$(Configuration)\$(RelativeOutputPathBase)</IntermediateOutputPath>
+        <IntermediateOutputPath>$([System.IO.Path]::GetFullPath( $(IntermediateOutputPath) ))\</IntermediateOutputPath>
+        
+        <OutputPath>$(BinRoot)\$(Configuration)\$(RelativeOutputPathBase)</OutputPath>
+        <OutputPath>$([System.IO.Path]::GetFullPath( $(OutputPath) ))\</OutputPath>
+
+        <!-- Collect all NuGet packages in the same folder for convenience during testing -->
+        <PackageOutputDir>$(BinRoot)\$(Configuration)\$(SolutionName)\NuGet</PackageOutputDir>
+
+        <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">$(EnlistmentRoot)\</SolutionDir>
+        
+        <PackagesDir>$(EnlistmentRoot)\..\Packages</PackagesDir>
+        <PackagesDir>$([System.IO.Path]::GetFullPath( $(PackagesDir) ))</PackagesDir>
+    </PropertyGroup>
+   
+    <PropertyGroup>
+        <!-- Enable NuGet package restore during build -->
+        <RestorePackages>true</RestorePackages>
+        <RequireRestoreConsent>false</RequireRestoreConsent>     
+    </PropertyGroup>   
+</Project>

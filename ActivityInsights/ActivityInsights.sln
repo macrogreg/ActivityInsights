@@ -5,7 +5,13 @@ VisualStudioVersion = 16.0.28922.388
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.ActivityInsights", "Microsoft.ActivityInsights\Microsoft.ActivityInsights.csproj", "{9C38D7EB-583B-4BD0-A11E-6B42657DBB76}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.ActivityInsights.Examples.Console", "Microsoft.ActivityInsights.Examples.Console\Microsoft.ActivityInsights.Examples.Console.csproj", "{8C9B956B-F0F8-43FD-B505-E25ED06BAE79}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.ActivityInsights.Examples.Console", "Microsoft.ActivityInsights.Examples.Console\Microsoft.ActivityInsights.Examples.Console.csproj", "{8C9B956B-F0F8-43FD-B505-E25ED06BAE79}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{009B749D-6FDD-49D9-9517-D779F63CA773}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Build.props = Directory.Build.props
+		EnlistmentRoot.marker = EnlistmentRoot.marker
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
