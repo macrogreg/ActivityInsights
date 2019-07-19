@@ -44,7 +44,9 @@
     <!--                          EnlistmentRoot.marker       | Enlistmet Root marker!!                                     -->
     <!--                          NuGet.config                | Optional repo-wide NuGet.config                             -->
     <!--                          ...                         |                                                             -->
-    <!--          RepoXyz\                                    |                                                             -->
+    <!--          RepoXyz\                                    | Other repos using this pattern follow                       -->
+    <!--                  ...                                 | the same file structure                                     -->
+    <!--          ...                                         |                                                             -->
     <!--                                                                                                                    -->
     <PropertyGroup>
         <!-- Get the root dir for all files that are checked-in (EnlistmentRoot): -->
