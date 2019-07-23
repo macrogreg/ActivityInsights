@@ -33,7 +33,9 @@ namespace Microsoft.ActivityInsights
 
             if (value.Length == 0)
             {
-                throw (variableName == null) ? new ArgumentException("The specified string argument may not be empty.") : new ArgumentNullException($"\"{variableName}\" may not be empty.");
+                throw (variableName == null)
+                        ? new ArgumentException("The specified string may not be empty.")
+                        : new ArgumentNullException($"\"{variableName}\" may not be empty.");
             }
 
             return value;

@@ -25,6 +25,13 @@ namespace Microsoft.ActivityInsights.Pipeline
         public static IActivityPipeline CreateForDevelopmentPhase()
         {
             TelemetryClient applicationInsightsClient = new TelemetryClient();
+            return CreateForDevelopmentPhase(applicationInsightsClient);
+        }
+
+        public static IActivityPipeline CreateForDevelopmentPhase(TelemetryClient applicationInsightsClient)
+        {
+            Util.EnsureNotNull(applicationInsightsClient, nameof(applicationInsightsClient));
+
             ActivityPipeline pipeline = new ActivityPipeline();
 
             // In development/debug phase we log all activities.
@@ -57,6 +64,13 @@ namespace Microsoft.ActivityInsights.Pipeline
         public static IActivityPipeline CreateForMaturePhase()
         {
             TelemetryClient applicationInsightsClient = new TelemetryClient();
+            return CreateForMaturePhase(applicationInsightsClient);
+        }
+
+        public static IActivityPipeline CreateForMaturePhase(TelemetryClient applicationInsightsClient)
+        {
+            Util.EnsureNotNull(applicationInsightsClient, nameof(applicationInsightsClient));
+
             ActivityPipeline pipeline = new ActivityPipeline();
 
             pipeline.Processors.Add(ActivityProcessor.CreateMetricExtractor(
@@ -115,5 +129,21 @@ namespace Microsoft.ActivityInsights.Pipeline
 
             return pipeline;
         }
+
+        public static IActivityPipeline CreateForSendOnly()
+        {
+            TelemetryClient applicationInsightsClient = new TelemetryClient();
+            return CreateForSendOnly(applicationInsightsClient);
+        }
+
+        public static IActivityPipeline CreateForSendOnly(TelemetryClient applicationInsightsClient)
+        {
+            Util.EnsureNotNull(applicationInsightsClient, nameof(applicationInsightsClient));
+
+            ActivityPipeline pipeline = new ActivityPipeline();
+            pipeline.Senders.Add(new ApplicationInsightsActivitySender(SenderNames.DefaultApplicationInsightsSender, applicationInsightsClient));
+            return pipeline;
+        }
     }
+
 }

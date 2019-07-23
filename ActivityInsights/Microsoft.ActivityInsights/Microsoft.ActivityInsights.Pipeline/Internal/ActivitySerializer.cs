@@ -13,14 +13,11 @@ namespace Microsoft.ActivityInsights.Pipeline
             Util.EnsureNotNull(measurements, nameof(measurements));
 
             labels["Activity.Name"] = activity.Name;
+            labels["Activity.LogLevel"] = activity.LogLevel.ToString();
+
             labels["Activity.Id"] = activity.ActivityId;
             labels["Activity.RootId"] = activity.RootActivity.ActivityId;
-
-            Activity parentActivity;
-            bool hasParent = activity.TryGetParentActivity(out parentActivity);
-            labels["Activity.ParentId"] = hasParent ? parentActivity.ActivityId : Util.NullString;
-
-            labels["Activity.LogLevel"] = activity.LogLevel.ToString();
+            labels["Activity.ParentId"] = Util.SpellNull(activity.ParentActivity?.ActivityId);
 
             labels["Activity.Status"] = activity.Status.ToString();
             labels["Activity.StartTimeUtc"] = activity.StartTime.UtcDateTime.ToString("o");
@@ -58,9 +55,12 @@ namespace Microsoft.ActivityInsights.Pipeline
 
             if (activityLabels != null)
             {
-                foreach (KeyValuePair<string, string> activityLabel in activityLabels)
+                lock (activityLabels)
                 {
-                    serializedLabels[Util.SpellNull(activityLabel.Key)] = Util.SpellNull(activityLabel.Value);
+                    foreach (KeyValuePair<string, string> activityLabel in activityLabels)
+                    {
+                        serializedLabels[Util.SpellNull(activityLabel.Key)] = Util.SpellNull(activityLabel.Value);
+                    }
                 }
             }
         }
@@ -74,9 +74,12 @@ namespace Microsoft.ActivityInsights.Pipeline
 
             if (activityMeasurements != null)
             {
-                foreach (KeyValuePair<string, double> activityMeasurement in activityMeasurements)
+                lock (activityMeasurements)
                 {
-                    serializedMeasurements[Util.SpellNull(activityMeasurement.Key)] = activityMeasurement.Value;
+                    foreach (KeyValuePair<string, double> activityMeasurement in activityMeasurements)
+                    {
+                        serializedMeasurements[Util.SpellNull(activityMeasurement.Key)] = activityMeasurement.Value;
+                    }
                 }
             }
         }

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading;
-
+using System.Threading.Tasks;
 using Microsoft.ActivityInsights;
 using Microsoft.ActivityInsights.Pipeline;
 
@@ -19,8 +19,10 @@ namespace Microsoft.ActivityInsights.Examples.Console
         static void Main(string[] args)
         {
             System.Console.WriteLine("Hello World!");
+
         }
 
+       
         public void ConfigurePipelineExample1()
         {
             IActivityPipeline pipeline = ActivityInsights.GetCurrentLogger().GetPipeline();
