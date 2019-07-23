@@ -16,9 +16,9 @@ namespace Microsoft.ActivityInsights.Pipeline
 
         public string Name { get { return _name; } }
 
-        public void ProcessActivity(Activity activity, TelemetryClient applicationInsightsClient, out bool continueProcessing)
+        public void ProcessActivity(Activity activity, out bool continueProcessing)
         {
-            _action(activity, applicationInsightsClient, out continueProcessing);
+            _action(activity,  out continueProcessing);
         }
     }
 

@@ -32,7 +32,7 @@ namespace Microsoft.ActivityInsights.Pipeline
             set { _exceptActivitySelector = value; }
         }
 
-        public void ProcessActivity(Activity activity, TelemetryClient notUsed, out bool continueProcessing)
+        public void ProcessActivity(Activity activity, out bool continueProcessing)
         {
             Func<Activity, bool> exceptActivitySelector = _exceptActivitySelector;
             bool selected = (true == _applyToActivitySelector(activity)) && (exceptActivitySelector == null || false == exceptActivitySelector(activity));

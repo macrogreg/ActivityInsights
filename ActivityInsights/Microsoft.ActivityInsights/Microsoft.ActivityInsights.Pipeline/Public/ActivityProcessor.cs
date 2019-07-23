@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Microsoft.ApplicationInsights;
 
 namespace Microsoft.ActivityInsights.Pipeline
 {
@@ -13,11 +14,12 @@ namespace Microsoft.ActivityInsights.Pipeline
         public static IActivityProcessor CreateMetricExtractor(
                                                     string extractorName,
                                                     Func<Activity, bool> activitySelector,
+                                                    TelemetryClient applicationInsightsClient,
                                                     string outputMetricName,
                                                     Func<Activity, double?> measurementValueExtractor,
                                                     IEnumerable<Tuple<Func<Activity, string>, string>> activityLabelsToMetricDimensionsMap)
         {
-            return new MetricExtractorActivityProcessor(extractorName, activitySelector, outputMetricName, measurementValueExtractor, activityLabelsToMetricDimensionsMap);
+            return new MetricExtractorActivityProcessor(extractorName, activitySelector, applicationInsightsClient, outputMetricName, measurementValueExtractor, activityLabelsToMetricDimensionsMap);
         }
 
         public static IActivityProcessor CreateFilterToExcludeAllSelected(

@@ -4,58 +4,88 @@ using System.Collections.Generic;
 
 namespace Microsoft.ActivityInsights.Pipeline
 {
-    public class ActivitySerializer
+    internal class ActivitySerializer
     {
-        public static void AddCoreActivityMetadata(Activity activity, IDictionary<string, string> labels, IDictionary<string, double> measurements)
+        public static void AddActivityCoreMetadata(Activity activity, IDictionary<string, string> labels, IDictionary<string, double> measurements)
         {
             Util.EnsureNotNull(activity, nameof(activity));
             Util.EnsureNotNull(labels, nameof(labels));
             Util.EnsureNotNull(measurements, nameof(measurements));
 
-            Activity parentActivity;
-            if (!activity.TryGetParentActivity(out parentActivity))
-            {
-                parentActivity = null;
-            }
-
             labels["Activity.Name"] = activity.Name;
             labels["Activity.Id"] = activity.ActivityId;
             labels["Activity.RootId"] = activity.RootActivity.ActivityId;
-            labels["Activity.ParentId"] = Util.SpellNull(parentActivity?.ActivityId);
+
+            Activity parentActivity;
+            bool hasParent = activity.TryGetParentActivity(out parentActivity);
+            labels["Activity.ParentId"] = hasParent ? parentActivity.ActivityId : Util.NullString;
+
+            labels["Activity.LogLevel"] = activity.LogLevel.ToString();
+
             labels["Activity.Status"] = activity.Status.ToString();
-            labels["Activity.StartTimeUtc"] = activity.EndTimeUtc.ToString("o");
-            labels["Activity.EndTimeUtc"] = activity.EndTimeUtc.ToString("o");
+            labels["Activity.StartTimeUtc"] = activity.StartTime.UtcDateTime.ToString("o");
+            labels["Activity.EndTimeUtc"] = activity.IsStatusFinal ? activity.EndTime.UtcDateTime.ToString("o") : Util.NullString;
+
+            if (activity.Status == ActivityStatus.Faulted)
+            {
+                labels["Activity.Status"] = Util.SpellNull(activity.FaultMessage);
+            }
 
             measurements["Activity.DurationMSecs"] = activity.Duration.TotalMilliseconds;
+        }
 
-            //bool ok;
-            //string str;
+        public static void AddActivityFailureRelatedMetadata(Activity activity, IDictionary<string, string> labels)
+        {
+            Util.EnsureNotNull(activity, nameof(activity));
+            Util.EnsureNotNull(labels, nameof(labels));
 
-            //ok = activity.TryGetLabel(Activity.ReservedNames.Labels.Name, out str);
-            //labels[Activity.ReservedNames.Labels.Name] = ok ? str : Util.NullString;
+            labels["Activity.Name"] = activity.Name;
 
-            //ok = activity.TryGetLabel(Activity.ReservedNames.Labels.ActivityId, out str);
-            //labels[Activity.ReservedNames.Labels.ActivityId] = ok ? str : Util.NullString;
+            labels["Activity.Id"] = activity.ActivityId;
+            labels["Activity.RootId"] = activity.RootActivity.ActivityId;
+            labels["Activity.LogLevel"] = activity.LogLevel.ToString();
 
-            //ok = activity.TryGetLabel(Activity.ReservedNames.Labels.RootId, out str);
-            //labels[Activity.ReservedNames.Labels.RootId] = ok ? str : Util.NullString;
+            labels["Activity.StartTimeUtc"] = activity.StartTime.UtcDateTime.ToString("o");
+            labels["Activity.EndTimeUtc"] = activity.EndTime.UtcDateTime.ToString("o");
+        }
 
-            //ok = activity.TryGetLabel(Activity.ReservedNames.Labels.ParentId, out str);
-            //labels[Activity.ReservedNames.Labels.ParentId] = ok ? str : Util.NullString;
+        public static void AddActivityLabels(Activity activity, IDictionary<string, string> serializedLabels)
+        {
+            Util.EnsureNotNull(activity, nameof(activity));
+            Util.EnsureNotNull(serializedLabels, nameof(serializedLabels));
 
-            //ok = activity.TryGetLabel(Activity.ReservedNames.Labels.Status, out str);
-            //labels[Activity.ReservedNames.Labels.Status] = ok ? str : Util.NullString;
+            IDictionary<string, string> activityLabels = activity.Labels;
 
-            //ok = activity.TryGetLabel(Activity.ReservedNames.Labels.StartTimeUtc, out str);
-            //labels[Activity.ReservedNames.Labels.StartTimeUtc] = ok ? str : Util.NullString;
+            if (activityLabels != null)
+            {
+                foreach (KeyValuePair<string, string> activityLabel in activityLabels)
+                {
+                    serializedLabels[Util.SpellNull(activityLabel.Key)] = Util.SpellNull(activityLabel.Value);
+                }
+            }
+        }
 
-            //ok = activity.TryGetLabel(Activity.ReservedNames.Labels.EndTimeUtc, out str);
-            //labels[Activity.ReservedNames.Labels.EndTimeUtc] = ok ? str : Util.NullString;
+        public static void AddActivityMeasurements(Activity activity, IDictionary<string, double> serializedMeasurements)
+        {
+            Util.EnsureNotNull(activity, nameof(activity));
+            Util.EnsureNotNull(serializedMeasurements, nameof(serializedMeasurements));
 
-            //double num;
+            IDictionary<string, double> activityMeasurements = activity.Measurements;
 
-            //ok = activity.TryGetMeasurement(Activity.ReservedNames.Measurements.DurationMSecs, out num);
-            //measurements[Activity.ReservedNames.Measurements.DurationMSecs] = ok ? num : Double.NaN;
+            if (activityMeasurements != null)
+            {
+                foreach (KeyValuePair<string, double> activityMeasurement in activityMeasurements)
+                {
+                    serializedMeasurements[Util.SpellNull(activityMeasurement.Key)] = activityMeasurement.Value;
+                }
+            }
+        }
+
+        public static void AddActivityData(Activity activity, IDictionary<string, string> labels, IDictionary<string, double> measurements)
+        {
+            AddActivityCoreMetadata(activity, labels, measurements);
+            AddActivityLabels(activity, labels);
+            AddActivityMeasurements(activity, measurements);
         }
     }
 }

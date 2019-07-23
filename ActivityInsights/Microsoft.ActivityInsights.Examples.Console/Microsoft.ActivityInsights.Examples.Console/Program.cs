@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 
@@ -24,9 +25,13 @@ namespace Microsoft.ActivityInsights.Examples.Console
         {
             IActivityPipeline pipeline = ActivityInsights.GetCurrentLogger().GetPipeline();
 
+            TelemetryClient appInsightClient =  pipeline.Senders.FindByName<ApplicationInsightsActivitySender>(ActivityPipelineDefaults.SenderNames.DefaultApplicationInsightsSender)?.ApplicationInsightsClient;
+            appInsightClient = appInsightClient ?? new TelemetryClient();
+
             pipeline.Processors.Add(ActivityProcessor.CreateMetricExtractor(
                                                             "Sample Extractor",
                                                             ActivityProcessor.UseSelectors.ByName.StartsWith("Sale"),
+                                                            appInsightClient,
                                                             "Price",
                                                             ActivityProcessor.UseMeasurement.Custom("Cows Sold", null),
                                                             ActivityProcessor.UseLabels.MapToDimensions(
@@ -36,7 +41,7 @@ namespace Microsoft.ActivityInsights.Examples.Console
                                                                     "Cow Breed",
                                                                     "Cow Color")));
 
-            pipeline.Processors.Add(ActivityProcessor.CreateCustom("Sampling Processor", (Activity activity, TelemetryClient telemetryClient, out bool continueProcessing) =>
+            pipeline.Processors.Add(ActivityProcessor.CreateCustom("Sampling Processor", (Activity activity, out bool continueProcessing) =>
                 {
                     const double samplingRate = 0.2; // 20%
                     const int pivot = (int)(Int32.MaxValue * samplingRate);

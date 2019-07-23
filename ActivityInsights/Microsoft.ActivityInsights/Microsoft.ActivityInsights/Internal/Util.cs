@@ -45,23 +45,6 @@ namespace Microsoft.ActivityInsights
             return value ?? NullString;
         }
 
-        public static void LogInternalError(TelemetryClient applicationInsightsClient, string message, IDictionary<string, string> detailLabels, IDictionary<string, double> detailMeasures)
-        {
-            EnsureNotNull(applicationInsightsClient, nameof(applicationInsightsClient));
-            message = SpellNull(message);
-
-            // Throw-Catch exception to initialize the stack and then log it:
-            try
-            {
-                throw new ActivityInsightsInternalException(message);
-            }
-            catch (Exception ex)
-            {
-                applicationInsightsClient.TrackException(ex, detailLabels, detailMeasures);
-                applicationInsightsClient.Flush();
-            }
-        }
-
         public static string FormatAsArray(IEnumerable<object> values, bool includeOuterBraces = true)
         {
             if (values == null)
@@ -78,6 +61,17 @@ namespace Microsoft.ActivityInsights
             }
 
             return str;
+        }
+
+        public static string CreateRandomId()
+        {
+            // We shorten a guid becasue locally the chars we use are "unique-enough:: 
+            // "708F5CC4-7F9C-468F-B21E-7153A88E24DE"
+            //      "CC4-7F9C-468F-B21E-715"
+
+            string guid = Guid.NewGuid().ToString("D");
+            string shortId = guid.Substring(5, 22);
+            return shortId;
         }
     }
 }

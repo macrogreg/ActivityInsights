@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.ApplicationInsights;
 
 namespace Microsoft.ActivityInsights.Pipeline
 {
@@ -10,6 +11,11 @@ namespace Microsoft.ActivityInsights.Pipeline
             public const string FilterToExcludeDevelopmentLogs = "Exclude Development Logs";
         }
 
+        public static class SenderNames
+        {
+            public const string DefaultApplicationInsightsSender = "Default Application Insights Activity Sender";
+        }
+
         public static class MetricNames
         {
             public const string ActivityCountsAndDurations = "Activity Durations and Counts";
@@ -18,6 +24,7 @@ namespace Microsoft.ActivityInsights.Pipeline
 
         public static IActivityPipeline CreateForDevelopmentPhase()
         {
+            TelemetryClient applicationInsightsClient = new TelemetryClient();
             ActivityPipeline pipeline = new ActivityPipeline();
 
             // In development/debug phase we log all activities.
@@ -30,6 +37,8 @@ namespace Microsoft.ActivityInsights.Pipeline
                     ProcessorNames.MetricExtractorForCountsAndDurations,
                 activitySelector:
                     ActivityProcessor.UseSelectors.SelectAll(),
+                applicationInsightsClient:
+                    applicationInsightsClient,
                 outputMetricName:
                     MetricNames.ActivityCountsAndDurations,
                 measurementValueExtractor:
@@ -40,11 +49,14 @@ namespace Microsoft.ActivityInsights.Pipeline
                             ActivityProcessor.UseLabels.MagicNames.ActivityLogLevel)
             ));
 
+            pipeline.Senders.Add(new ApplicationInsightsActivitySender(SenderNames.DefaultApplicationInsightsSender, applicationInsightsClient));
+
             return pipeline;
         }
 
         public static IActivityPipeline CreateForMaturePhase()
         {
+            TelemetryClient applicationInsightsClient = new TelemetryClient();
             ActivityPipeline pipeline = new ActivityPipeline();
 
             pipeline.Processors.Add(ActivityProcessor.CreateMetricExtractor(
@@ -52,6 +64,8 @@ namespace Microsoft.ActivityInsights.Pipeline
                     ProcessorNames.MetricExtractorForCountsAndDurations,
                 activitySelector:
                     ActivityProcessor.UseSelectors.SelectAll(),
+                applicationInsightsClient:
+                    applicationInsightsClient,
                 outputMetricName:
                     MetricNames.ActivityCountsAndDurations,
                 measurementValueExtractor:
@@ -67,6 +81,8 @@ namespace Microsoft.ActivityInsights.Pipeline
                     ProcessorNames.MetricExtractorForCountsAndDurations,
                 activitySelector:
                     ActivityProcessor.UseSelectors.SelectAll(),
+                applicationInsightsClient:
+                    applicationInsightsClient,
                 outputMetricName:
                     MetricNames.ActivityCountsAndDurationsByName,
                 measurementValueExtractor:
@@ -94,6 +110,8 @@ namespace Microsoft.ActivityInsights.Pipeline
                             ActivityProcessor.UseSelectors.ByLogLevel.SmallerOrEqual(ActivityLogLevel.Information),
                             ActivityProcessor.UseSelectors.ByStatus.NotEqual(ActivityStatus.Faulted))
             ));
+
+            pipeline.Senders.Add(new ApplicationInsightsActivitySender(SenderNames.DefaultApplicationInsightsSender, applicationInsightsClient));
 
             return pipeline;
         }

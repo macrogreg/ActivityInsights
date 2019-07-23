@@ -45,7 +45,7 @@
     <!--                          NuGet.config                | Optional repo-wide NuGet.config                             -->
     <!--                          ...                         |                                                             -->
     <!--          RepoXyz\                                    | Other repos using this pattern follow                       -->
-    <!--                  ...                                 | the same file structure                                     -->
+    <!--                  ...                                 | the same file structure.                                    -->
     <!--          ...                                         |                                                             -->
     <!--                                                                                                                    -->
     <PropertyGroup>
