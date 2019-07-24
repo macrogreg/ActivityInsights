@@ -9,6 +9,6 @@ namespace Microsoft.ActivityInsights.Pipeline
 
         IList<IActivitySender> Senders { get; }
 
-        //void ProcessAndSend(Activity activity);
+        void ProcessAndSend(Activity activity);
     }
 }

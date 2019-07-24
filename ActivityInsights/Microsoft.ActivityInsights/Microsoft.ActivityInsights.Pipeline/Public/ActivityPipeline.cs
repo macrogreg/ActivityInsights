@@ -36,7 +36,7 @@ namespace Microsoft.ActivityInsights.Pipeline
             }
         }
 
-        internal void ProcessAndSend(Activity activity)
+        public void ProcessAndSend(Activity activity)
         {
             if (activity == null)
             {

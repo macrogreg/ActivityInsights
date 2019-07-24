@@ -20,7 +20,7 @@ namespace Microsoft.ActivityInsights
             _status = (int) ActivityStatus.Running;
 
             this.ActivityId = Util.EnsureNotNullOrEmpty(activityId, nameof(activityId));
-            this.RootActivity = Util.EnsureNotNull(root, nameof(root));
+            this.RootActivity = root ?? this;
             this.ParentActivity = parent;
 
             this.StartTime = DateTimeOffset.Now;
