@@ -25,25 +25,29 @@ namespace Microsoft.ActivityInsights.Pipeline
 
             if (activity.Status == ActivityStatus.Faulted)
             {
-                labels["Activity.Status"] = Util.SpellNull(activity.FaultMessage);
+                labels["Activity.FaultMessage"] = Util.SpellNull(activity.FaultMessage);
+                labels["Activity.InitialFaultActivityId"] = Util.SpellNull(activity.InitialFaultActivity.ActivityId);
+                labels["Activity.FaultId"] = Util.SpellNull(activity.FaultId);
             }
 
             measurements["Activity.DurationMSecs"] = activity.Duration.TotalMilliseconds;
         }
 
-        public static void AddActivityFailureRelatedMetadata(Activity activity, IDictionary<string, string> labels)
+        public static void AddActivityMetadataForExceptions(Activity activity, IDictionary<string, string> labels)
         {
             Util.EnsureNotNull(activity, nameof(activity));
             Util.EnsureNotNull(labels, nameof(labels));
 
             labels["Activity.Name"] = activity.Name;
+            labels["Activity.LogLevel"] = activity.LogLevel.ToString();
 
             labels["Activity.Id"] = activity.ActivityId;
             labels["Activity.RootId"] = activity.RootActivity.ActivityId;
-            labels["Activity.LogLevel"] = activity.LogLevel.ToString();
-
+            
             labels["Activity.StartTimeUtc"] = activity.StartTime.UtcDateTime.ToString("o");
             labels["Activity.EndTimeUtc"] = activity.EndTime.UtcDateTime.ToString("o");
+
+            labels["Activity.FaultId"] = Util.SpellNull(activity.FaultId);
         }
 
         public static void AddActivityLabels(Activity activity, IDictionary<string, string> serializedLabels)

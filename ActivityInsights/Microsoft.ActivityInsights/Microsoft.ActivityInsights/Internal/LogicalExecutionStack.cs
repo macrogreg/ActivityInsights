@@ -5,7 +5,7 @@ namespace Microsoft.ActivityInsights
 {
     internal class LogicalExecutionStack
     {
-        private readonly List<Activity> _activities = new List<Activity>();
+        private readonly List<Activity> _activities = new List<Activity>(capacity: 1);
 
         public LogicalExecutionStack(LogicalExecutionStack parentStack)
         {

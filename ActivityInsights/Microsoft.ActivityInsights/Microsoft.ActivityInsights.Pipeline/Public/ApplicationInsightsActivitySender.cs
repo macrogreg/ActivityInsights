@@ -60,25 +60,19 @@ namespace Microsoft.ActivityInsights.Pipeline
             activityTelemetry.Timestamp = activity.IsStatusFinal ? activity.EndTime.ToUniversalTime() : DateTimeOffset.UtcNow;
             ActivitySerializer.AddActivityData(activity, activityTelemetry.Properties, activityTelemetry.Metrics);
             
-            if (activity.Status == ActivityStatus.Faulted)
+            // We need to only log exceptions once per fault, togehter with the activity that was faulted explicitly.
+            if (activity.Status == ActivityStatus.Faulted && activity.InitialFaultActivity == activity)
             {
-                string exceptionRefId = Util.NullString;
                 Exception exception = activity.FaultException;
-
                 if (exception != null)
                 {
                     ExceptionTelemetry exceptionTelemetry = new ExceptionTelemetry(exception);
                     exceptionTelemetry.Properties[ItemSourceLabelName] = ItemSourceLabelValue;
 
-                    ActivitySerializer.AddActivityFailureRelatedMetadata(activity, exceptionTelemetry.Properties);
-
-                    exceptionRefId = Util.CreateRandomId();
-                    exceptionTelemetry.Properties[ExceptionIdLabel] = exceptionRefId;
+                    ActivitySerializer.AddActivityMetadataForExceptions(activity, exceptionTelemetry.Properties);
 
                     _applicationInsightsClient.TrackException(exceptionTelemetry);
                 }
-
-                activityTelemetry.Properties[ExceptionIdLabel] = exceptionRefId;
             }
 
             _applicationInsightsClient.TrackEvent(activityTelemetry);

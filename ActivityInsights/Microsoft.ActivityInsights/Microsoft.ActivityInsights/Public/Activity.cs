@@ -11,13 +11,13 @@ namespace Microsoft.ActivityInsights
         private Dictionary<string, string> _labels = null;
         private Dictionary<string, double> _measurements = null;
 
-        private int _status;
-
-        public Activity(string activityName, ActivityLogLevel logLevel, string activityId, Activity root, Activity parent)
+        internal Activity(string activityName, ActivityLogLevel logLevel, string activityId, Activity root, Activity parent, LogicalExecutionStack logicalExecutionStack)
         {
+            this.LogicalExecutionStack = Util.EnsureNotNull(logicalExecutionStack, nameof(logicalExecutionStack));
+
             this.Name = Util.EnsureNotNullOrEmpty(activityName, nameof(activityName));
             this.LogLevel = logLevel;
-            _status = (int) ActivityStatus.Running;
+            this.Status = ActivityStatus.Running;
 
             this.ActivityId = Util.EnsureNotNullOrEmpty(activityId, nameof(activityId));
             this.RootActivity = root ?? this;
@@ -28,13 +28,17 @@ namespace Microsoft.ActivityInsights
 
             this.FaultException = null;
             this.FaultMessage = null;
+            this.InitialFaultActivity = null;
+            this.FaultId = null;
         }
+
+        internal LogicalExecutionStack LogicalExecutionStack { get; }
 
         public string Name { get; }
 
         public ActivityLogLevel LogLevel { get; }
 
-        public ActivityStatus Status { get { return (ActivityStatus) _status; } }
+        public ActivityStatus Status { get; private set; }
 
         public bool IsStatusFinal
         {
@@ -144,58 +148,38 @@ namespace Microsoft.ActivityInsights
 
         public string FaultMessage { get; private set; }
 
-        public Exception FailAndRethrow(Exception exception)
+        public Activity InitialFaultActivity { get; private set; }
+
+        public string FaultId { get; private set; }
+
+        internal void TransitionToFaulted(Exception exception, DateTimeOffset activityEndTime, string faultMessage, Activity initialFaultActivity, string faultId)
         {
-            Util.EnsureNotNull(exception, nameof(exception));
+            Util.EnsureNotNull(initialFaultActivity, nameof(initialFaultActivity));
+            Util.EnsureNotNull(faultId, nameof(faultId));
 
-            string faultMsg = $"{exception.GetType().Name}: {exception.Message}";
-            return TransitionToFail(exception, faultMsg, nameof(FailAndRethrow), rethrow: true);
-        }
-
-        public void FailAndSwallow(Exception exception)
-        {
-            Util.EnsureNotNull(exception, nameof(exception));
-
-            string faultMsg = $"{exception.GetType().Name}: {exception.Message}";
-            TransitionToFail(exception, faultMsg, nameof(FailAndSwallow), rethrow: false);
-        }
-
-        public void Fail(string failureMessage)
-        {
-            failureMessage = Util.SpellNull(failureMessage);
-            TransitionToFail(null, failureMessage, nameof(Fail), rethrow: false);
-        }
-
-        private Exception TransitionToFail(Exception exception, string failureMessage, string transitionMethodName, bool rethrow)
-        {
-            int prevStatus = Interlocked.CompareExchange(ref _status, (int) ActivityStatus.Faulted, (int) ActivityStatus.Running);
-            if (prevStatus != (int) ActivityStatus.Running)
+            if (this.Status != ActivityStatus.Running)
             {
-                ThrowCannotTransitionToFinalStatus(transitionMethodName, (ActivityStatus) prevStatus);
+                ThrowCannotTransitionToFinalStatus(ActivityStatus.Faulted, this.Status);
             }
 
-            this.EndTime = DateTimeOffset.Now;
+            this.Status = ActivityStatus.Faulted;
+            this.EndTime = activityEndTime;
 
             this.FaultException = exception;
-            this.FaultMessage = failureMessage;
-
-            if (rethrow)
-            {
-                ExceptionDispatchInfo.Capture(exception).Throw();
-            }
-
-            return exception;
+            this.FaultMessage = Util.SpellNull(faultMessage);
+            this.InitialFaultActivity = initialFaultActivity;
+            this.FaultId = faultId;
         }
 
-        public void Complete()
+        internal void TransitionToComplete(DateTimeOffset activityEndTime)
         {
-            int prevStatus = Interlocked.CompareExchange(ref _status, (int) ActivityStatus.Completed, (int) ActivityStatus.Running);
-            if (prevStatus != (int) ActivityStatus.Running)
+            if (this.Status != ActivityStatus.Running)
             {
-                ThrowCannotTransitionToFinalStatus(nameof(Complete), (ActivityStatus) prevStatus);
+                ThrowCannotTransitionToFinalStatus(ActivityStatus.Completed, this.Status);
             }
 
-            this.EndTime = DateTimeOffset.Now;
+            this.Status = ActivityStatus.Completed;
+            this.EndTime = activityEndTime;
         }
 
         private Dictionary<string, string> EnsureHasLabels()
@@ -226,11 +210,12 @@ namespace Microsoft.ActivityInsights
             return measurements;
         }
 
-        private static void ThrowCannotTransitionToFinalStatus(string transitionMethodName, ActivityStatus actualStatus)
+        private static void ThrowCannotTransitionToFinalStatus(ActivityStatus targetStatus, ActivityStatus currentStatus)
         {
-            throw new InvalidOperationException($"'{transitionMethodName}(..)' may only be invoked on an {nameof(Activity)} with"
-                                                + $" the {nameof(Status)} == {ActivityStatus.Running}."
-                                                + $" However {nameof(Status)} of this {nameof(Activity)} is '{actualStatus}'.");
+            throw new InvalidOperationException($"Cannot transition {nameof(Activity)} to the '{targetStatus}'-status:"
+                                              + $" Transition may only occur for an {nameof(Activity)} with"
+                                              + $" {nameof(Status)} == {ActivityStatus.Running}."
+                                              + $" However, the current {nameof(Status)} of this {nameof(Activity)} is '{currentStatus}'.");
         }
        
     }

@@ -91,7 +91,7 @@ namespace Microsoft.ActivityInsights.Examples.ConsoleFoo
         {
             _testLogger.StartNewActivity($"Activity {x}", ActivityLogLevel.Information);
             Console.WriteLine($"Performing workload {x}");
-            _testLogger.CompleteActivity();
+            _testLogger.CompleteCurrentActivity();
 
             return Task.FromResult(x);
         }
@@ -110,9 +110,9 @@ namespace Microsoft.ActivityInsights.Examples.ConsoleFoo
             await Task.Delay(1000);
             Console.WriteLine($"Completed sleep #2 in {s}");
 
-            _testLogger.CompleteActivity();
+            _testLogger.CompleteCurrentActivity();
 
-            _testLogger.CompleteActivity();
+            _testLogger.CompleteCurrentActivity();
 
             return s;
         }
@@ -133,10 +133,10 @@ namespace Microsoft.ActivityInsights.Examples.ConsoleFoo
 
                 Task.Run(() => DoWorkSync(5)).GetAwaiter().GetResult();
 
-                _testLogger.CompleteActivity();
+                _testLogger.CompleteCurrentActivity();
             }
 
-            _testLogger.CompleteActivity();
+            _testLogger.CompleteCurrentActivity();
 
             Console.WriteLine();
             Console.WriteLine();
@@ -150,7 +150,7 @@ namespace Microsoft.ActivityInsights.Examples.ConsoleFoo
 
             Task.WaitAll(new[] {tA, tB});
 
-            _testLogger.CompleteActivity();
+            _testLogger.CompleteCurrentActivity();
         }
 
         static void Thread1Main()
