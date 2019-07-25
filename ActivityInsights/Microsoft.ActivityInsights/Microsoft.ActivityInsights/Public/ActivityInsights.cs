@@ -1,18 +1,34 @@
-﻿using Microsoft.ActivityInsights;
+﻿
 using System;
-using System.Collections.Generic;
-using System.Text;
+using Microsoft.ActivityInsights.Pipeline;
 
 namespace Microsoft.ActivityInsights
 {
     public static class ActivityInsights
     {
-        public static Activity StartNewActivity(string activityName) { return null; }
-        public static Activity StartNewActivity(string activityNamePrefix, string activityNamePostfix) { return null; }
+        private static ActivityInsightsLog s_log;
 
-        public static ActivityInsightsLogger GetCurrentLogger()
+        static ActivityInsights()
         {
-            return null;
+            IActivityPipeline defaultPipeline = ActivityPipelineDefaults.CreateForDevelopmentPhase();
+            ActivityInsightsLog defaultLog = new ActivityInsightsLog(defaultPipeline);
+            s_log = defaultLog;
         }
+
+
+        public static ActivityInsightsLog Log { get { return s_log; } }
+
+        public static IActivityPipeline Pipeline { get { return s_log.Pipeline; } }
+
+        public static void SetLog(ActivityInsightsLog log)
+        {
+            s_log = Util.EnsureNotNull(log, nameof(log));
+        }
+
+        public static void SetPipeline(IActivityPipeline pipeline)
+        {
+            s_log.Pipeline = Util.EnsureNotNull(pipeline, nameof(pipeline));
+        }
+
     }
 }

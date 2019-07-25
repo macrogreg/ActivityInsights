@@ -4,8 +4,19 @@ namespace Microsoft.ActivityInsights
 {
     public enum ActivityLogLevel
     {
+        /// <summary>
+        /// Most detailed log level.
+        /// </summary>
         Debug = 10,
+
+        /// <summary>
+        /// Normal (aka medium) log level. 
+        /// </summary>
         Information = 20,
+
+        /// <summary>
+        /// Most concise log level for most important activities.
+        /// </summary>
         Critical = 30
     }
 

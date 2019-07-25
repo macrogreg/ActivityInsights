@@ -85,13 +85,14 @@ namespace Microsoft.ActivityInsights.Examples.ConsoleFoo
         //    TestActivity.Finish();
         //}
 
-        static ActivityInsightsLogger _testLogger = new ActivityInsightsLogger(new TestPipeline());
+        static ActivityInsightsLog _testLogger = new ActivityInsightsLog(new TestPipeline());
 
         static Task<int> DoWorkSync(int x)
         {
             _testLogger.StartNewActivity($"Activity {x}", ActivityLogLevel.Information);
+
             Console.WriteLine($"Performing workload {x}");
-            _testLogger.CompleteCurrentActivity();
+            _testLogger.CompleteActivity();
 
             return Task.FromResult(x);
         }
@@ -110,9 +111,9 @@ namespace Microsoft.ActivityInsights.Examples.ConsoleFoo
             await Task.Delay(1000);
             Console.WriteLine($"Completed sleep #2 in {s}");
 
-            _testLogger.CompleteCurrentActivity();
+            _testLogger.CompleteActivity();
 
-            _testLogger.CompleteCurrentActivity();
+            _testLogger.CompleteActivity();
 
             return s;
         }
@@ -133,10 +134,10 @@ namespace Microsoft.ActivityInsights.Examples.ConsoleFoo
 
                 Task.Run(() => DoWorkSync(5)).GetAwaiter().GetResult();
 
-                _testLogger.CompleteCurrentActivity();
+                _testLogger.CompleteActivity();
             }
 
-            _testLogger.CompleteCurrentActivity();
+            _testLogger.CompleteActivity();
 
             Console.WriteLine();
             Console.WriteLine();
@@ -150,7 +151,7 @@ namespace Microsoft.ActivityInsights.Examples.ConsoleFoo
 
             Task.WaitAll(new[] {tA, tB});
 
-            _testLogger.CompleteCurrentActivity();
+            _testLogger.CompleteActivity();
         }
 
         static void Thread1Main()
@@ -171,6 +172,7 @@ namespace Microsoft.ActivityInsights.Examples.ConsoleFoo
 
         static void Main(string[] args)
         {
+
             System.Console.WriteLine("Hello World!");
 
             TestLogger1();
@@ -357,7 +359,7 @@ namespace Microsoft.ActivityInsights.Examples.ConsoleFoo
 
         public void ConfigurePipelineExample1()
         {
-            IActivityPipeline pipeline = ActivityInsights.GetCurrentLogger().Pipeline;
+            IActivityPipeline pipeline = ActivityInsights.Pipeline;
 
             TelemetryClient appInsightClient =  pipeline.Senders.FindByName<ApplicationInsightsActivitySender>(ActivityPipelineDefaults.SenderNames.DefaultApplicationInsightsSender)?.ApplicationInsightsClient;
             appInsightClient = appInsightClient ?? new TelemetryClient();
@@ -396,7 +398,7 @@ namespace Microsoft.ActivityInsights.Examples.ConsoleFoo
         public void ConfigurePipelineExample2()
         {
             IActivityPipeline pipeline = ActivityPipelineDefaults.CreateForDevelopmentPhase();
-            ActivityInsights.GetCurrentLogger().Pipeline = pipeline; 
+            ActivityInsights.SetPipeline(pipeline); 
         }
 
         public void ConfigurePipelineExample3()
@@ -408,7 +410,7 @@ namespace Microsoft.ActivityInsights.Examples.ConsoleFoo
                     .FindByName<FilterToExcludeAllSelectedActivityProcessor>(ActivityPipelineDefaults.ProcessorNames.FilterToExcludeDevelopmentLogs)
                             .ExceptActivitySelector = ActivityProcessor.UseSelectors.ByName.StartsWith("ComputePi");
 
-            ActivityInsights.GetCurrentLogger().Pipeline = pipeline;
+            ActivityInsights.SetPipeline(pipeline);
         }
     }
 

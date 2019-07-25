@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Microsoft.ActivityInsights.Pipeline
 {
-    public sealed class ActivityPipeline : IActivityPipeline
+    internal class ActivityPipeline : IActivityPipeline
     {
         private readonly List<IActivityProcessor> _processors = new List<IActivityProcessor>();
         private readonly List<IActivitySender> _senders = new List<IActivitySender>();
