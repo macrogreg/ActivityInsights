@@ -8,6 +8,7 @@ using Microsoft.ActivityInsights;
 using Microsoft.ActivityInsights.Pipeline;
 
 using Microsoft.ApplicationInsights;
+using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.ApplicationInsights.Metrics;
 
 namespace Microsoft.ActivityInsights.Examples.ConsoleFoo
@@ -57,75 +58,49 @@ namespace Microsoft.ActivityInsights.Examples.ConsoleFoo
             Console.WriteLine(al?.Value?.ToString() ?? "null");
         }
 
-        //public static async Task M1Async()
-        //{
-        //    TestActivity.Start("M1");
-        //    await Task.Delay(1000);
-        //    TestActivity.Finish();
-        //}
+        
 
-        //public static async Task M2Async()
-        //{
-        //    TestActivity.Start("M2");
-        //    await Task.Delay(1000);
-        //    TestActivity.Finish();
-        //}
-
-        //public static Task M3()
-        //{
-        //    TestActivity.Start("M3");
-        //    Task.Delay(1000).GetAwaiter().GetResult();
-        //    TestActivity.Finish();
-        //}
-
-        //public static async Task M4()
-        //{
-        //    TestActivity.Start("M4");
-        //    Task.Delay(1000).GetAwaiter().GetResult();
-        //    TestActivity.Finish();
-        //}
-
-        static ActivityInsightsLog _testLogger = new ActivityInsightsLog(new TestPipeline());
+        static ActivityInsightsLog s_testLogger = new ActivityInsightsLog(new TestPipeline());
 
         static Task<int> DoWorkSync(int x)
         {
-            _testLogger.StartNewActivity($"Activity {x}", ActivityLogLevel.Information);
+            s_testLogger.StartNewActivity($"Activity {x}", ActivityLogLevel.Information);
 
             Console.WriteLine($"Performing workload {x}");
-            _testLogger.CompleteActivity();
+            s_testLogger.CompleteActivity();
 
             return Task.FromResult(x);
         }
 
         static async Task<string> DoWorkAsync(string s)
         {
-            _testLogger.StartNewLogicalActivityThread($"Activity {s}", ActivityLogLevel.Information);
+            s_testLogger.StartNewLogicalActivityThread($"Activity {s}", ActivityLogLevel.Information);
 
             Console.WriteLine($"About to sleep #1 in {s}");
             await Task.Delay(1000);
             Console.WriteLine($"Completed sleep #1 in {s}");
 
-            _testLogger.StartNewActivity($"Activity {s}.A", ActivityLogLevel.Information);
+            s_testLogger.StartNewActivity($"Activity {s}.A", ActivityLogLevel.Information);
 
             Console.WriteLine($"About to sleep #2 in {s}");
             await Task.Delay(1000);
             Console.WriteLine($"Completed sleep #2 in {s}");
 
-            _testLogger.CompleteActivity();
+            s_testLogger.CompleteActivity();
 
-            _testLogger.CompleteActivity();
+            s_testLogger.CompleteActivity();
 
             return s;
         }
 
         static void TestLogger1()
         {
-            _testLogger.StartNewActivity("Activity 1", ActivityLogLevel.Information);
+            s_testLogger.StartNewActivity("Activity 1", ActivityLogLevel.Information);
 
             Console.WriteLine("Performing workload 1");
 
             {
-                _testLogger.StartNewActivity("Activity 2", ActivityLogLevel.Information);
+                s_testLogger.StartNewActivity("Activity 2", ActivityLogLevel.Information);
                 Console.WriteLine("Performing workload 2");
 
                 DoWorkSync(3);
@@ -134,15 +109,15 @@ namespace Microsoft.ActivityInsights.Examples.ConsoleFoo
 
                 Task.Run(() => DoWorkSync(5)).GetAwaiter().GetResult();
 
-                _testLogger.CompleteActivity();
+                s_testLogger.CompleteActivity();
             }
 
-            _testLogger.CompleteActivity();
+            s_testLogger.CompleteActivity();
 
             Console.WriteLine();
             Console.WriteLine();
 
-            _testLogger.StartNewActivity("Activity 10", ActivityLogLevel.Information);
+            s_testLogger.StartNewActivity("Activity 10", ActivityLogLevel.Information);
 
             Task tA = DoWorkAsync("A");
             Task tB = DoWorkAsync("B");
@@ -151,12 +126,11 @@ namespace Microsoft.ActivityInsights.Examples.ConsoleFoo
 
             Task.WaitAll(new[] {tA, tB});
 
-            _testLogger.CompleteActivity();
+            s_testLogger.CompleteActivity();
         }
 
         static void Thread1Main()
         {
-
             Console.WriteLine($"Thread1Main entered");
             PrintAsyncLocal(_al1);
 
@@ -170,12 +144,60 @@ namespace Microsoft.ActivityInsights.Examples.ConsoleFoo
             PrintAsyncLocal(_al1);
         }
 
+        static async Task DoWorkZAsync()
+        {
+            ActivityInsights.Log.StartNewActivity("Z");
+
+            await Task.Delay(1000);
+            throw new Exception("Work Z Failed");
+
+            ActivityInsights.Log.CompleteActivity();
+        }
+
+        static void DoWorkX()
+        {
+            ActivityInsights.Log.StartNewActivity("X");
+
+            //... 
+
+            DoWorkZAsync().GetAwaiter().GetResult();
+
+            ActivityInsights.Log.CompleteActivity();
+        }
+
+        static void DoWorkY()
+        {
+            ///Activity activityY = ActivityInsights.Log.StartNewActivity("Y");
+            Activity activityY = ActivityInsights.Log.StartNewLogicalActivityThread("Y");
+            try
+            {
+                //... 
+
+                DoWorkX();
+
+                ActivityInsights.Log.CompleteActivity();
+            }
+            catch(Exception ex)
+            {
+                ActivityInsights.Log.FailActivityAndRethrow(activityY, ex);
+            }
+            
+        }
+
         static void Main(string[] args)
         {
 
             System.Console.WriteLine("Hello World!");
 
+            s_testLogger.GetPipeline().Senders.Add(new ApplicationInsightsActivitySender(
+                                                            ActivityPipelineDefaults.SenderNames.DefaultApplicationInsightsSender,
+                                                            new TelemetryClient()));
+
+            s_testLogger.StartNewActivityWithOperation<RequestTelemetry>("Outer Operation", ActivityLogLevel.Information);
+
             TestLogger1();
+
+            s_testLogger.CompleteActivity();
 
             return;
 

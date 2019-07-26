@@ -96,7 +96,12 @@ namespace Microsoft.ActivityInsights.Pipeline
             }
         }
 
-        private void LogInternalError(Exception exception, HashSet<IActivitySender> skipSenders = null)
+        internal void LogInternalError(Exception exception)
+        {
+            LogInternalError(exception, skipSenders: null);
+        }
+
+        private void LogInternalError(Exception exception, HashSet<IActivitySender> skipSenders)
         {
             if (exception == null)
             {

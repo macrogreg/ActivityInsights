@@ -11,7 +11,15 @@ namespace Microsoft.ActivityInsights
         private Dictionary<string, string> _labels = null;
         private Dictionary<string, double> _measurements = null;
 
-        internal Activity(string activityName, ActivityLogLevel logLevel, string activityId, Activity root, Activity parent, LogicalExecutionStack logicalExecutionStack)
+        internal Activity(
+                    string activityName,
+                    ActivityLogLevel logLevel,
+                    string activityId,
+                    Activity root,
+                    Activity parent,
+                    string distributedTracingParentOperationId,
+                    string distributedTracingGlobalOperationId,
+                    LogicalExecutionStack logicalExecutionStack)
         {
             this.LogicalExecutionStack = Util.EnsureNotNull(logicalExecutionStack, nameof(logicalExecutionStack));
 
@@ -23,6 +31,9 @@ namespace Microsoft.ActivityInsights
             this.RootActivity = root ?? this;
             this.ParentActivity = parent;
 
+            this.DistributedTracingParentOperationId = distributedTracingParentOperationId;  // may be null
+            this.DistributedTracingGlobalOperationId = distributedTracingGlobalOperationId;  // may be null
+
             this.StartTime = DateTimeOffset.Now;
             this.EndTime = default(DateTimeOffset);
 
@@ -33,6 +44,8 @@ namespace Microsoft.ActivityInsights
         }
 
         internal LogicalExecutionStack LogicalExecutionStack { get; }
+
+        internal IDisposable AssociatedOperation { get; set; }
 
         public string Name { get; }
 
@@ -50,7 +63,11 @@ namespace Microsoft.ActivityInsights
         public Activity RootActivity { get; }
 
         public Activity ParentActivity { get; }
-        
+
+        public string DistributedTracingParentOperationId { get; }
+
+        public string DistributedTracingGlobalOperationId { get; }
+
         public DateTimeOffset StartTime { get; }
 
         public DateTimeOffset EndTime { get; private set; }

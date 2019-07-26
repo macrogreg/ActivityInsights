@@ -1,7 +1,11 @@
-﻿using Microsoft.ApplicationInsights;
-using Microsoft.ApplicationInsights.DataContracts;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using Microsoft.ApplicationInsights;
+using Microsoft.ApplicationInsights.DataContracts;
+using Microsoft.ApplicationInsights.Extensibility;
+using Microsoft.ApplicationInsights.Extensibility.Implementation;
+
+using DistributedTracingActivity = System.Diagnostics.Activity;
 
 namespace Microsoft.ActivityInsights.Pipeline
 {
@@ -76,6 +80,34 @@ namespace Microsoft.ActivityInsights.Pipeline
             }
 
             _applicationInsightsClient.TrackEvent(activityTelemetry);
+        }
+
+        internal IDisposable StartActivityOperation<TOperation>(
+                                    string name,
+                                    string operationId = null,
+                                    string parentOperationId = null,
+                                    string globalOperationId = null)
+                            where TOperation : OperationTelemetry, new()
+        {
+            Util.EnsureNotNull(name, nameof(name));
+
+            DistributedTracingActivity currentOperationContext = DistributedTracingActivity.Current;
+
+            TOperation operation = new TOperation();
+            operation.Name = name;
+
+            operation.Id = operationId;
+            if (operation.Id == null)
+            {
+                operation.GenerateOperationId();
+            }
+
+            operation.Context.Operation.ParentId = parentOperationId ?? currentOperationContext?.Id;
+            operation.Context.Operation.Id = globalOperationId ?? currentOperationContext?.RootId;
+            operation.Context.Operation.Name = name;
+
+            IOperationHolder<TOperation> startedOperation = _applicationInsightsClient.StartOperation(operation);
+            return startedOperation;
         }
     }
 }

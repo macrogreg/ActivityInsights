@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using Microsoft.ActivityInsights.Pipeline;
+using Microsoft.ApplicationInsights.Extensibility.Implementation;
+
+using DistributedTracingActivity = System.Diagnostics.Activity;
 
 namespace Microsoft.ActivityInsights
 {
@@ -55,17 +58,48 @@ namespace Microsoft.ActivityInsights
         {
             activityName = ValidateActivityName(activityName);
 
-            LogicalExecutionStack currentLogicalStack = GetCurrentLogicalStack(createIfNotExists: true);
+            string parentOperationId, globalOperationId;
+            TryGetDistributedTracingContext(out parentOperationId, out globalOperationId);
+
+            LogicalExecutionStack currentLogicalStack = GetOrCreateCurrentLogicalStack();
 
             lock (currentLogicalStack)
             {
                 Activity parent = currentLogicalStack.Peek(); // may be null
 
-                var activity = new Activity(activityName, logLevel, Util.CreateRandomId(), parent?.RootActivity, parent, currentLogicalStack);
+                var activity = new Activity(
+                                    activityName,
+                                    logLevel,
+                                    Util.CreateRandomId(),
+                                    parent?.RootActivity,
+                                    parent,
+                                    parentOperationId,
+                                    globalOperationId,
+                                    currentLogicalStack);
+
                 currentLogicalStack.Push(activity);
 
                 return activity;
             }
+        }
+
+        public Activity StartNewActivityWithOperation<TOperation>(
+                                    string name,
+                                    ActivityLogLevel logLevel,
+                                    string operationId = null,
+                                    string parentOperationId = null,
+                                    string globalOperationId = null)
+                        where TOperation : OperationTelemetry, new()
+        {
+            name = ValidateActivityName(name);
+
+            ApplicationInsightsActivitySender appInsightsSender = FindApplicationInsightsSender();
+            IDisposable operation = appInsightsSender?.StartActivityOperation<TOperation>(name, operationId, parentOperationId, globalOperationId);
+
+            Activity activity = StartNewActivity(name, logLevel);
+            activity.AssociatedOperation = operation;
+
+            return activity;
         }
 
         public Activity StartNewLogicalActivityThread(string activityNamePrefix, string activityNamePostfix)
@@ -88,7 +122,10 @@ namespace Microsoft.ActivityInsights
         {
             activityName = ValidateActivityName(activityName);
 
-            LogicalExecutionStack currentLogicalStack = GetCurrentLogicalStack(createIfNotExists: false);
+            string parentOperationId, globalOperationId;
+            TryGetDistributedTracingContext(out parentOperationId, out globalOperationId);
+
+            LogicalExecutionStack currentLogicalStack = _logicalExecutionThread.Value;
 
             object lockScope = currentLogicalStack;
             lockScope = lockScope ?? _logicalExecutionThread;
@@ -99,7 +136,16 @@ namespace Microsoft.ActivityInsights
 
                 var newLogicalStack = new LogicalExecutionStack(currentLogicalStack);
 
-                var activity = new Activity(activityName, logLevel, Util.CreateRandomId(), parent?.RootActivity, parent, newLogicalStack);
+                var activity = new Activity(
+                                    activityName,
+                                    logLevel,
+                                    Util.CreateRandomId(),
+                                    parent?.RootActivity,
+                                    parent,
+                                    parentOperationId,
+                                    globalOperationId,
+                                    newLogicalStack);
+
                 newLogicalStack.Push(activity);
 
                 _logicalExecutionThread.Value = newLogicalStack;
@@ -108,11 +154,30 @@ namespace Microsoft.ActivityInsights
             }
         }
 
+        public Activity StartNewLogicalActivityThreadWithOperation<TOperation>(
+                                    string name,
+                                    ActivityLogLevel logLevel,
+                                    string operationId = null,
+                                    string parentOperationId = null,
+                                    string globalOperationId = null)
+                        where TOperation : OperationTelemetry, new()
+        {
+            name = ValidateActivityName(name);
+
+            ApplicationInsightsActivitySender appInsightsSender = FindApplicationInsightsSender();
+            IDisposable operation = appInsightsSender?.StartActivityOperation<TOperation>(name, operationId, parentOperationId, globalOperationId);
+
+            Activity activity = StartNewLogicalActivityThread(name, logLevel);
+            activity.AssociatedOperation = operation;
+
+            return activity;
+        }
+
         public void CompleteActivity()
         {
             DateTimeOffset now = DateTimeOffset.Now;
 
-            LogicalExecutionStack logicalStack = GetCurrentLogicalStack(createIfNotExists: false);
+            LogicalExecutionStack logicalStack = _logicalExecutionThread.Value;
             if (logicalStack == null)
             {
                 throw new InvalidOperationException(ExceptionMsg_ActivityStartEndMismatch);
@@ -129,8 +194,21 @@ namespace Microsoft.ActivityInsights
                 }
             }
 
+            IDisposable associatedOperation = activity.AssociatedOperation;
+
             activity.TransitionToComplete(now);
             _pipeline.ProcessAndSend(activity);
+
+            if (associatedOperation != null)
+            {
+                var telemetry = associatedOperation as OperationTelemetry;
+                if (telemetry != null)
+                {
+                    telemetry.Success = true;
+                }
+
+                associatedOperation.Dispose();
+            }
         }
 
         public void FailActivity(Activity activity, string failureMessage)
@@ -210,7 +288,7 @@ namespace Microsoft.ActivityInsights
 
         private Activity PeekCurrentActivityToUseProperties()
         {
-            LogicalExecutionStack logicalStack = GetCurrentLogicalStack(createIfNotExists: false);
+            LogicalExecutionStack logicalStack = _logicalExecutionThread.Value;
             if (logicalStack == null)
             {
                 throw new InvalidOperationException(ExceptionMsg_CannotAccessActivityToUseProperties);
@@ -227,7 +305,7 @@ namespace Microsoft.ActivityInsights
         {
             DateTimeOffset now = DateTimeOffset.Now;
 
-            LogicalExecutionStack logicalStack = GetCurrentLogicalStack(createIfNotExists: false);
+            LogicalExecutionStack logicalStack = _logicalExecutionThread.Value;
 
             if (logicalStack == null)
             {
@@ -260,8 +338,22 @@ namespace Microsoft.ActivityInsights
 
             for (int i = 0; i < faultedActivities.Count; i++)
             {
-                faultedActivities[i].TransitionToFaulted(exception, now, failureMessage, activity, faultId);
-                _pipeline.ProcessAndSend(faultedActivities[i]);
+                Activity faultedActivity = faultedActivities[i];
+                IDisposable associatedOperation = faultedActivity.AssociatedOperation;
+
+                faultedActivity.TransitionToFaulted(exception, now, failureMessage, activity, faultId);
+                _pipeline.ProcessAndSend(faultedActivity);
+
+                if (associatedOperation != null)
+                {
+                    var telemetry = associatedOperation as OperationTelemetry;
+                    if (telemetry != null)
+                    {
+                        telemetry.Success = true;
+                    }
+
+                    associatedOperation.Dispose();
+                }
             }
         }
 
@@ -269,7 +361,7 @@ namespace Microsoft.ActivityInsights
         {
             DateTimeOffset now = DateTimeOffset.Now;
 
-            LogicalExecutionStack logicalStack = GetCurrentLogicalStack(createIfNotExists: false);
+            LogicalExecutionStack logicalStack = _logicalExecutionThread.Value;
             if (logicalStack == null)
             {
                 throw new InvalidOperationException(ExceptionMsg_ActivityStartEndMismatch);
@@ -286,11 +378,24 @@ namespace Microsoft.ActivityInsights
                 }
             }
 
+            IDisposable associatedOperation = activity.AssociatedOperation;
+
             activity.TransitionToFaulted(exception, now, failureMessage, activity, Util.CreateRandomId());
             _pipeline.ProcessAndSend(activity);
+
+            if (associatedOperation != null)
+            {
+                var telemetry = associatedOperation as OperationTelemetry;
+                if (telemetry != null)
+                {
+                    telemetry.Success = true;
+                }
+
+                associatedOperation.Dispose();
+            }
         }
 
-        private LogicalExecutionStack GetCurrentLogicalStack(bool createIfNotExists)
+        private LogicalExecutionStack GetOrCreateCurrentLogicalStack()
         {
             LogicalExecutionStack currentLogicalStack = _logicalExecutionThread.Value;
 
@@ -310,7 +415,54 @@ namespace Microsoft.ActivityInsights
                 }
 
                 _logicalExecutionThread.Value = newLogicalStack;
-                return currentLogicalStack;
+                return newLogicalStack;
+            }
+        }
+
+        private ApplicationInsightsActivitySender FindApplicationInsightsSender()
+        {
+            ApplicationInsightsActivitySender activitySender = _pipeline.Senders.FindByName<ApplicationInsightsActivitySender>(
+                                                            ActivityPipelineDefaults.SenderNames.DefaultApplicationInsightsSender);
+
+            if (activitySender == null)
+            {
+                var pipeline = _pipeline as ActivityPipeline;
+                if (pipeline != null)
+                {
+                    try
+                    {
+                        throw new ActivityInsightsException(
+                                        $"Cannot find an {nameof(ApplicationInsightsActivitySender)} with the name"
+                                      + $" '{ActivityPipelineDefaults.SenderNames.DefaultApplicationInsightsSender}' in the"
+                                      + $" activity pipeline. Application Insights specific functionality is not available."
+                                      + $" This may be an expected result on using a custom pipeline.",
+                                            detailLabels: null,
+                                            detailMeasures: null);
+                    }
+                    catch(ActivityInsightsException ex)
+                    {
+                        pipeline.LogInternalError(ex);
+                    }
+                }
+            }
+
+            return activitySender;
+        }
+
+        private static bool TryGetDistributedTracingContext(out string parentOperationId, out string globalOperationId)
+        {
+            DistributedTracingActivity currentOperationContext = DistributedTracingActivity.Current;
+
+            if (currentOperationContext != null)
+            {
+                parentOperationId = currentOperationContext.Id;
+                globalOperationId = currentOperationContext.RootId;
+                return true;
+            }
+            else
+            {
+                parentOperationId = globalOperationId = null;
+                return false;
             }
         }
 
